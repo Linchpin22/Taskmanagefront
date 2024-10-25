@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../axios';
 import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../axios';
 
 const UserDashboard = () => {
   const [tasks, setTasks] = useState([]);
@@ -23,7 +24,7 @@ const UserDashboard = () => {
   const fetchTasks = async () => {
     const token = localStorage.getItem('token'); // Get the token
     try {
-      const response = await axios.get('/tasks/my-tasks', {
+      const response = await axiosInstance.get('/tasks/my-tasks', {
         headers: {
           Authorization: `Bearer ${token}`, // Include token in headers
         },

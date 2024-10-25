@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:4001', // Change to your API base URL
+  baseURL: 'http://localhost:4001',
+  headers: {"Content-Type": "application/json"}
+  
 });
 
 // Add a request interceptor to include the token and email in all outgoing requests
