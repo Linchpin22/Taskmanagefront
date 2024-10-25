@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from '../axios'; // Adjust the import according to your axios setup
+import axios from '../axios';
 import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
@@ -8,38 +8,78 @@ const AdminDashboard = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
-  const [error, setError] = useState(''); // State for error messages
-  const [loading, setLoading] = useState(false); // State for loading indication
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchTasks();
-    fetchUsers(); // Fetch users on component mount
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No token found, please login');
+      navigate('/login');
+    } else {
+      fetchTasks();
+      fetchUsers();
+    }
   }, []);
 
   const fetchTasks = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No token found, please login');
+      navigate('/login');
+      return;
+    }
+
     try {
-      const response = await axios.get('/tasks');
-      setTasks(response.data);
+      console.log('Fetching tasks...'); // Debug log
+      console.log('Token:', token); // Log the token to see if it is valid
+      
+      const response = await axios.get('/tasks', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log('Response from server:', response.data); // Debug log
+
+      if (response.data && Array.isArray(response.data)) {
+        if (response.data.length === 0) {
+          setError('No tasks yet.');
+          setTasks([]);
+        } else {
+          setTasks(response.data);
+          setError('');
+        }
+      } else {
+        setError('Unexpected response format.');
+        setTasks([]);
+      }
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      console.error('Error fetching tasks:', error); 
+      setError(error.response?.data?.error || 'Failed to fetch tasks. Please try again later.');
     }
   };
 
   const fetchUsers = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No token found, please login');
+      navigate('/login');
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token'); // Retrieve the token from localStorage
       const response = await axios.get('/users', {
         headers: {
-          Authorization: `Bearer ${token}`, // Include the token in the request headers
+          Authorization: `Bearer ${token}`,
         },
       });
-      console.log('Fetched users:', response.data); // Log fetched users
-      setUsers(response.data); // Set users in state
+      setUsers(response.data);
     } catch (error) {
-      console.error('Error fetching users:', error.response ? error.response.data : error.message); // Improved error logging
-      setError('Failed to fetch users.'); // Optional: set an error state to display in the UI
+      console.error('Error fetching users:', error.response ? error.response.data : error.message);
+      setError('Failed to fetch users.');
     }
   };
 
@@ -49,50 +89,59 @@ const AdminDashboard = () => {
       return;
     }
 
-    setLoading(true); // Set loading to true when starting the request
-    setError(''); // Clear any previous error message
+    setLoading(true);
+    setError('');
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No token found, please login');
+      setLoading(false);
+      return;
+    }
 
     try {
-      const token = localStorage.getItem('token'); // Retrieve the token from localStorage
-      console.log('Using token:', token); // Log the token for debugging
-
-      const response = await axios.post('/tasks/create', 
-        { title, description, assignedTo }, 
+      const response = await axios.post(
+        '/tasks/create',
+        { title, description, assignedTo },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // Include the token in the request headers
+            Authorization: `Bearer ${token}`,
           },
         }
       );
-      console.log('Task created successfully');
-      
-      // Fetch updated tasks after creating
-      fetchTasks();
-      
-      // Reset the input fields
-      setTitle('');
-      setDescription('');
-      setAssignedTo('');
+
+      // Log the response for debugging
+      console.log('Response from server:', response.data);
+
+      if (response.status === 201) { // Changed to 201 for successful creation
+        fetchTasks(); 
+        setTitle('');
+        setDescription('');
+        setAssignedTo('');
+        setError(''); 
+      } else {
+        setError('Failed to create task. Please try again.');
+      }
     } catch (error) {
-      console.error('Error creating task:', error); // Log the entire error for debugging
-      const errorMessage = error.response?.data?.error || error.message || 'Error creating task'; // Improved error handling
-      setError(errorMessage); // Set error message to display
+      console.error('Error creating task:', error); // Log the entire error object
+      const errorMessage = error.response?.data?.error || 'Error creating task';
+      setError(errorMessage.includes('validation') ? 'Invalid input: ' + errorMessage : errorMessage);
     } finally {
-      setLoading(false); // Set loading to false after request completes
+      setLoading(false);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
-    localStorage.removeItem('name'); // Remove user name
-    navigate('/'); // Redirect to login page after logout
+    localStorage.removeItem('name');
+    navigate('/');
   };
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <h1 className="text-3xl font-bold mb-4">Admin Dashboard</h1>
-      <div className='flex flex-row justify-between'>
+      <div className="flex flex-row justify-between">
         <h1 className="text-3xl font-bold mb-4">Welcome, Admin!</h1>
         <button
           onClick={handleLogout}
@@ -124,17 +173,19 @@ const AdminDashboard = () => {
         >
           <option value="">Assign To</option>
           {users.map((user) => (
-            <option key={user._id} value={user._id}>{user.name}</option>
+            <option key={user._id} value={user._id}>
+              {user.name}
+            </option>
           ))}
         </select>
-        <button 
-          onClick={handleCreateTask} 
+        <button
+          onClick={handleCreateTask}
           className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-500 transition duration-300"
-          disabled={loading} // Disable button while loading
+          disabled={loading}
         >
           {loading ? 'Creating...' : 'Create Task'}
         </button>
-        {error && <p className="text-red-500">{error}</p>} {/* Display error message */}
+        {error && <p className="text-red-500">{error}</p>}
       </div>
       <div>
         <h2 className="text-xl font-semibold mb-2">Task List</h2>

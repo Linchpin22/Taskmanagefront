@@ -1,54 +1,55 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const STATIC_TOKENS = {
+  user: 'static-user-token',
+  admin: 'static-admin-token',
+};
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(''); // State to manage error messages
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Static admin credentials
+    // Admin credentials
     const adminCredentials = {
       email: 'admin@ex.com',
       password: '1234',
       role: 'admin',
     };
 
-    // Reset previous error message
     setError('');
 
     // Check admin credentials
     if (email === adminCredentials.email && password === adminCredentials.password) {
-      localStorage.setItem('token', 'static-admin-token');
+      localStorage.setItem('token', `${STATIC_TOKENS.admin}`);
       localStorage.setItem('role', adminCredentials.role);
       navigate('/admin');
-      return; // Early return to avoid further checks
+      return;
     }
 
-    // Check for normal user credentials in localStorage
+    // Check user credentials
     const userData = localStorage.getItem(email);
-    console.log('User data from localStorage:', userData); // Log the retrieved user data
+    console.log('User data from localStorage:', userData);
 
     if (userData) {
       const user = JSON.parse(userData);
-      console.log('User:', user); // Log the parsed user object
+      console.log('User:', user);
 
-      // Log the input password and the stored password for comparison
-      console.log('Input Password:', password);
-      console.log('Stored Password:', user.password);
-
+      // Verify user password
       if (user.password === password) {
-        localStorage.setItem('token', 'static-user-token'); // Set a static token
+        localStorage.setItem('token', `${STATIC_TOKENS.user}`);
         localStorage.setItem('role', user.role);
         navigate('/user');
       } else {
-        setError('Invalid email or password'); // Set error message if password doesn't match
+        setError('Invalid email or password');
       }
     } else {
-      setError('Invalid email or password'); // Set error message if no user is found
+      setError('Invalid email or password');
     }
   };
 
@@ -57,7 +58,6 @@ const Login = () => {
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
         <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">Login</h2>
         
-        {/* Display error message */}
         {error && (
           <div className="bg-red-100 text-red-600 p-3 mb-4 rounded-md text-center">
             {error}
