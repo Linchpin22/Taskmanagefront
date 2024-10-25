@@ -10,6 +10,7 @@ const AdminDashboard = () => {
   const [assignedTo, setAssignedTo] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editingTask, setEditingTask] = useState(null); // State to track which task is being edited
 
   const navigate = useNavigate();
 
@@ -33,23 +34,26 @@ const AdminDashboard = () => {
     }
 
     try {
-      console.log('Fetching tasks...'); // Debug log
-      console.log('Token:', token); // Log the token to see if it is valid
-      
       const response = await axios.get('/tasks', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      console.log('Response from server:', response.data); // Debug log
-
       if (response.data && Array.isArray(response.data)) {
         if (response.data.length === 0) {
           setError('No tasks yet.');
           setTasks([]);
         } else {
-          setTasks(response.data);
+          // Map user IDs to user names
+          const tasksWithUserNames = response.data.map((task) => {
+            const user = users.find((user) => user._id === task.assignedTo); // Find user by ID
+            return {
+              ...task,
+              assignedTo: user ? user.name : 'Unknown User', // Use user name or fallback to 'Unknown User'
+            };
+          });
+          setTasks(tasksWithUserNames);
           setError('');
         }
       } else {
@@ -57,7 +61,7 @@ const AdminDashboard = () => {
         setTasks([]);
       }
     } catch (error) {
-      console.error('Error fetching tasks:', error); 
+      console.error('Error fetching tasks:', error);
       setError(error.response?.data?.error || 'Failed to fetch tasks. Please try again later.');
     }
   };
@@ -110,10 +114,7 @@ const AdminDashboard = () => {
         }
       );
 
-      // Log the response for debugging
-      console.log('Response from server:', response.data);
-
-      if (response.status === 201) { // Changed to 201 for successful creation
+      if (response.status === 201) {
         fetchTasks(); 
         setTitle('');
         setDescription('');
@@ -123,11 +124,84 @@ const AdminDashboard = () => {
         setError('Failed to create task. Please try again.');
       }
     } catch (error) {
-      console.error('Error creating task:', error); // Log the entire error object
+      console.error('Error creating task:', error);
       const errorMessage = error.response?.data?.error || 'Error creating task';
       setError(errorMessage.includes('validation') ? 'Invalid input: ' + errorMessage : errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditTask = (task) => {
+    setTitle(task.title);
+    setDescription(task.description);
+    setAssignedTo(task.assignedTo); // Assuming assignedTo contains the user name now
+    setEditingTask(task); // Set the task being edited
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask || !title || !description || !assignedTo) {
+      setError('Please fill all the fields');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No token found, please login');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.put(
+        `/tasks/${editingTask._id}`, // Make sure this is your update endpoint
+        { title, description, assignedTo }, // You might want to send assignedTo as user ID again here
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        fetchTasks(); 
+        setTitle('');
+        setDescription('');
+        setAssignedTo('');
+        setEditingTask(null); // Clear editing state
+        setError(''); 
+      } else {
+        setError('Failed to update task. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+      setError(error.response?.data?.error || 'Error updating task');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No token found, please login');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await axios.delete(`/tasks/${taskId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      fetchTasks(); // Refresh task list after deletion
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      setError('Failed to delete task.');
     }
   };
 
@@ -173,17 +247,17 @@ const AdminDashboard = () => {
         >
           <option value="">Assign To</option>
           {users.map((user) => (
-            <option key={user._id} value={user._id}>
+            <option key={user._id} value={user._id}> {/* Use user ID for submission */}
               {user.name}
             </option>
           ))}
         </select>
         <button
-          onClick={handleCreateTask}
+          onClick={editingTask ? handleUpdateTask : handleCreateTask}
           className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-500 transition duration-300"
           disabled={loading}
         >
-          {loading ? 'Creating...' : 'Create Task'}
+          {loading ? (editingTask ? 'Updating...' : 'Creating...') : (editingTask ? 'Update Task' : 'Create Task')}
         </button>
         {error && <p className="text-red-500">{error}</p>}
       </div>
@@ -191,10 +265,26 @@ const AdminDashboard = () => {
         <h2 className="text-xl font-semibold mb-2">Task List</h2>
         <ul>
           {tasks.map((task) => (
-            <li key={task._id} className="border p-2 my-2 rounded-lg bg-gray-50">
-              <h2 className="text-lg font-bold">{task.title}</h2>
-              <p>{task.description}</p>
-              <p className="text-sm text-gray-600">Status: {task.status}</p>
+            <li key={task._id} className="bg-white p-4 rounded-lg shadow-lg mb-2 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold">{task.title}</h3>
+                <p className="text-gray-600">{task.description}</p>
+                <p className="text-gray-600">Assigned To: {task.assignedTo}</p>
+              </div>
+              <div className="flex flex-col">
+                <button
+                  onClick={() => handleEditTask(task)}
+                  className="bg-yellow-500 text-white p-2 rounded-lg mb-2 hover:bg-yellow-400 transition duration-300"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteTask(task._id)}
+                  className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-500 transition duration-300"
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>

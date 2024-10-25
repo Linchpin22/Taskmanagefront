@@ -9,25 +9,25 @@ const UserDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchUserData(); // Fetch user data on component mount
+    // Get the username directly from local storage
+    const storedName = localStorage.getItem('name');
+    if (storedName) {
+      setUserName(storedName);
+    } else {
+      setError('User name not found in local storage.');
+    }
+
     fetchTasks();
   }, []);
 
-  const fetchUserData = async () => {
-    try {
-      const response = await axios.get('/users/me'); // Adjust this endpoint as necessary to fetch logged-in user data
-      if (response.data && response.data.name) {
-        setUserName(response.data.name);
-      }
-    } catch (err) {
-      console.error('Error fetching user data:', err);
-      setError(err.response?.data?.error || 'Failed to fetch user data. Please try again later.');
-    }
-  };
-
   const fetchTasks = async () => {
+    const token = localStorage.getItem('token'); // Get the token
     try {
-      const response = await axios.get('/tasks/my-tasks');
+      const response = await axios.get('/tasks/my-tasks', {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include token in headers
+        },
+      });
       setTasks(response.data);
       setError(''); 
     } catch (err) {

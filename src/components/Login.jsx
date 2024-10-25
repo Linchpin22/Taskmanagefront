@@ -14,6 +14,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
 
     // Admin credentials
     const adminCredentials = {
@@ -22,28 +23,28 @@ const Login = () => {
       role: 'admin',
     };
 
-    setError('');
-
-    // Check admin credentials
+    // Check if admin credentials are correct
     if (email === adminCredentials.email && password === adminCredentials.password) {
-      localStorage.setItem('token', `${STATIC_TOKENS.admin}`);
-      localStorage.setItem('role', adminCredentials.role);
+      localStorage.setItem('token', STATIC_TOKENS.admin);
+      localStorage.setItem('role', 'admin');
+      localStorage.setItem('email', email); // Store admin email for backend verification
       navigate('/admin');
       return;
     }
 
-    // Check user credentials
+    // Test user login with data from localStorage
     const userData = localStorage.getItem(email);
     console.log('User data from localStorage:', userData);
 
     if (userData) {
       const user = JSON.parse(userData);
-      console.log('User:', user);
 
       // Verify user password
       if (user.password === password) {
-        localStorage.setItem('token', `${STATIC_TOKENS.user}`);
-        localStorage.setItem('role', user.role);
+        localStorage.setItem('token', STATIC_TOKENS.user);
+        localStorage.setItem('role', 'user');
+        localStorage.setItem('userId', user._id); // Store the user’s Object ID
+        localStorage.setItem('email', email); // Store user email for backend verification
         navigate('/user');
       } else {
         setError('Invalid email or password');
@@ -57,13 +58,13 @@ const Login = () => {
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-r from-blue-500 to-purple-500 px-4">
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
         <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">Login</h2>
-        
+
         {error && (
           <div className="bg-red-100 text-red-600 p-3 mb-4 rounded-md text-center">
             {error}
           </div>
         )}
-        
+
         <input
           type="email"
           placeholder="Email"
